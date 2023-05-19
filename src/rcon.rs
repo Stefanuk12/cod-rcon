@@ -181,16 +181,19 @@ impl RCON {
         // Read the data
         let mut buf = vec![0; buffer_size];
         let (_amt, _src) = socket.recv_from(&mut buf).unwrap();
+        println!("Received (bytes): {:x?}", buf);
 
         // Check for malformed
-        println!("Received: {:x?}", buf);
-        if buf.chunks(4).next().unwrap() == FF {
+        if buf.chunks(4).next().unwrap() != FF {
             return Err(RCONError::MalforedRead);
         }
 
-        // Check for auth
-        let str_buf = String::from_utf8(buf.to_vec()).unwrap();
-        let str_buf_split: Vec<_> = str_buf.split(" ").collect();
+        // Convert to a string
+        let str_buf = buf[4..].to_vec();
+        let str_utf8 = String::from_utf8(str_buf).unwrap();
+        let str_buf_split: Vec<_> = str_utf8.split(" ").collect();
+
+        // Challenge check
         if str_buf_split.len() == 3 && str_buf_split[0] == "challenge" && str_buf_split[1] == "rcon" {
             // Set auth data
             self.challenge_token = Some(
@@ -203,7 +206,7 @@ impl RCON {
         }
 
         // Return the data
-        Ok(str_buf[..str_buf.len() - 2].to_string())
+        Ok(str_utf8[..str_utf8.len() - 2].to_string())
     }
 
     // Reads data (tcp and udp)

@@ -34,6 +34,7 @@ fn main() {
     rcon.connect().unwrap();
 
     // Send a test message
+    println!("Recieved (text): {}", rcon.read(2^4).unwrap());
     rcon.send_command(&args.command, None, None).unwrap();
-    println!("{}", rcon.read(16).unwrap());
+    println!("Received (text): {}", rcon.read(2^32).unwrap());
 }
