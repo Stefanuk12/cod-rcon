@@ -31,8 +31,8 @@ fn main() {
     rcon.host = args.host;
     rcon.port = args.port;
     rcon.password = args.password;
-    rcon.connect();
+    rcon.connect().unwrap();
 
     // Send a test message
-    rcon.send_command(&args.command, None, None);
+    rcon.send_command(&args.command, None, None).unwrap();
 }

@@ -8,18 +8,23 @@ use std::{
 };
 
 //
+const FF: [u8; 4] = [0xff, 0xff, 0xff, 0xff];
 pub enum PacketType {
     CommandR = 0x02,
     Auth = 0x03,
     ResponseValue = 0x00
 }
+#[derive(Debug)]
 pub enum RCONError {
     NotConnected,
     DisabledMode,
     NoChallengeToken,
     MalforedRead,
     RecieveAuth,
-    Send
+    Send,
+    TCPAuth,
+    ChallengeFailed,
+    ConnectFailed
 }
 
 // Main struct
@@ -58,7 +63,7 @@ impl RCON {
     }
 
     // Initialises the sockets
-    pub fn connect(&mut self) -> Result<(), std::io::Error> {
+    pub fn connect(&mut self) -> Result<(), RCONError> {
         // Initialise defaults
         self.id = Some(self.id.unwrap_or(0x0012D4A6));
         self.tcp = Some(self.tcp.unwrap_or(false));
@@ -69,15 +74,39 @@ impl RCON {
         let socket_address = format!("{}:{}", self.host, self.port);
         let tcp = self.tcp.unwrap();
 
-        // Create the socket
-        if tcp { 
-            self.t_socket = Some(
-                TcpStream::connect(socket_address)?
-            );
+        //
+        if tcp {
+            // Connect to the stream
+            let socket = TcpStream::connect(socket_address);
+            if let Err(_e) = socket {
+                return Err(RCONError::ConnectFailed);
+            }
+            self.t_socket = Some(socket.unwrap());
+
+            // Send auth
+            if let Err(_e) = self.send_command(&self.password, Some(PacketType::Auth), None) {
+                return Err(RCONError::TCPAuth);
+            }
         } else {
-            self.u_socket = Some(
-                UdpSocket::bind(socket_address)?
-            );
+            // Connect to socket
+            let socket_u = UdpSocket::bind(socket_address.clone());
+            if let Err(_e) = socket_u {
+                return Err(RCONError::ConnectFailed);
+            }
+            let socket = socket_u.unwrap();
+            socket.connect(socket_address).unwrap();
+            self.u_socket = Some(socket.try_clone().unwrap());
+
+            // Send challenge (if enabled)
+            if self.challenge.unwrap() {
+                if let Err(_e) = self.send_command("challenge rcon\n", None, None) {
+                    return Err(RCONError::ChallengeFailed);
+                }
+            }
+            
+            // Send some data
+            self.send(&[0xff, 0xff, 0xff, 0xff, 0x00]).unwrap();
+            self.auth = Some(true);
         } 
 
         // Success
@@ -93,14 +122,13 @@ impl RCON {
         }
 
         // Attempt to send
+        println!("Sending command: {:02x?}", data);
         if tcp {
-            if self.t_socket.as_ref().unwrap().write(data).is_err() {
+            if let Err(_e) = self.t_socket.as_ref().unwrap().write(data) {
                 return Err(RCONError::Send);
             }
-        } else {
-            if self.u_socket.as_ref().unwrap().send(data).is_err() {
-                return Err(RCONError::Send);
-            }
+        } else if let Err(_e) = self.u_socket.as_ref().unwrap().send(data) {
+            return Err(RCONError::Send);
         }
 
         // Success
@@ -114,7 +142,7 @@ impl RCON {
         let _command_type = command_type.unwrap_or(PacketType::CommandR);
 
         // Check for TCP (disabled)
-        if self.tcp.unwrap() == false {
+        if self.tcp.unwrap() {
             return Err(RCONError::DisabledMode);
         }
 
@@ -122,19 +150,24 @@ impl RCON {
         let mut payload = String::from("rcon ");
 
         // Check for challenge
-        if self.challenge.is_some() && self.challenge_token.is_none() {
-            return Err(RCONError::NoChallengeToken);
-        } else {
-            let challenge = self.challenge_token.as_ref().unwrap().clone();
-            payload.push_str(&(challenge + "\n"));
+        if self.challenge.unwrap() {
+            if self.challenge_token.is_none() {
+                return Err(RCONError::NoChallengeToken);
+            } else {
+                let challenge = self.challenge_token.as_ref().unwrap().clone();
+                payload.push_str(&(challenge + "\n"));
+            }
         }
 
         // Add the password and data
-        payload.push_str(&self.password);
+        payload.push_str(&(self.password.clone() + " "));
         payload.push_str(&(data.to_owned() + "\n"));
 
+        // Construct the buffer
+        let buf = [FF.to_vec(), payload.as_bytes().to_vec()].concat();
+
         // Send the command
-        self.send(payload.as_bytes())
+        self.send(buf.as_slice())
     }
 
     // Reads UDP data
@@ -150,7 +183,7 @@ impl RCON {
         let (_amt, _src) = socket.recv_from(&mut buf).unwrap();
 
         // Check for malformed
-        if buf[0] == 0xff && buf[1] == 0xff && buf[2] == 0xff && buf[3] == 0xff {
+        if buf.chunks(4).next().unwrap() == FF {
             return Err(RCONError::MalforedRead);
         }
 
