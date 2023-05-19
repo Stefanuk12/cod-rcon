@@ -35,4 +35,5 @@ fn main() {
 
     // Send a test message
     rcon.send_command(&args.command, None, None).unwrap();
+    println!("{}", rcon.read(16).unwrap());
 }

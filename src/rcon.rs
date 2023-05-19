@@ -171,7 +171,7 @@ impl RCON {
     }
 
     // Reads UDP data
-    pub fn read_udp(&mut self) -> Result<String, RCONError> {
+    pub fn read_udp(&mut self, buffer_size: usize) -> Result<String, RCONError> {
         // Ensure we are connected
         if self.u_socket.is_none() {
             return Err(RCONError::NotConnected);
@@ -179,10 +179,11 @@ impl RCON {
         let socket = self.u_socket.as_ref().unwrap();
 
         // Read the data
-        let mut buf = [0; 1024];
+        let mut buf = vec![0; buffer_size];
         let (_amt, _src) = socket.recv_from(&mut buf).unwrap();
 
         // Check for malformed
+        println!("Received: {:x?}", buf);
         if buf.chunks(4).next().unwrap() == FF {
             return Err(RCONError::MalforedRead);
         }
@@ -206,7 +207,7 @@ impl RCON {
     }
 
     // Reads data (tcp and udp)
-    pub fn read(&mut self) -> Result<String, RCONError> {
-        return self.read_udp();
+    pub fn read(&mut self, buffer_size: usize) -> Result<String, RCONError> {
+        return self.read_udp(buffer_size);
     }
 }
