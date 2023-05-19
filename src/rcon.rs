@@ -135,12 +135,8 @@ impl RCON {
         Ok(())
     }
 
-    // Send a command
-    pub fn send_command(&self, data: &str, command_type: Option<PacketType>, id: Option<u32>) -> Result<(), RCONError> {
-        // Defaults
-        let _id = id.unwrap_or(self.id.unwrap());
-        let _command_type = command_type.unwrap_or(PacketType::CommandR);
-
+    // Send a command (UDP)
+    pub fn send_command_udp(&self, data: &str) -> Result<(), RCONError> {
         // Check for TCP (disabled)
         if self.tcp.unwrap() {
             return Err(RCONError::DisabledMode);
@@ -168,6 +164,33 @@ impl RCON {
 
         // Send the command
         self.send(buf.as_slice())
+    }
+
+    // Sends a command (TCP)
+    pub fn send_command_tcp(&self, data: &str, command_type: Option<PacketType>, id: Option<u32>) -> Result<(), RCONError> {
+        // Defaults
+        let _id = id.unwrap_or(self.id.unwrap());
+        let _command_type = command_type.unwrap_or(PacketType::CommandR);
+
+        // Construct the buffer
+        let buf = [];
+
+        // Send the command
+        self.send(buf.as_slice())
+    }
+
+    // Sends a command
+    pub fn send_command(&self, data: &str, command_type: Option<PacketType>, id: Option<u32>) -> Result<(), RCONError> {
+        if self.tcp.unwrap() {
+            return self.send_command_tcp(data, command_type, id);
+        } else {
+            return self.send_command_udp(data);
+        }
+    }
+
+    // Reads TCP data
+    pub fn read_tcp(&mut self, buffer_size: usize) -> Result<String, RCONError> {
+        Ok(String::from(""))
     }
 
     // Reads UDP data
@@ -211,6 +234,10 @@ impl RCON {
 
     // Reads data (tcp and udp)
     pub fn read(&mut self, buffer_size: usize) -> Result<String, RCONError> {
-        return self.read_udp(buffer_size);
+        if self.tcp.unwrap() {
+            return self.read_tcp(buffer_size);
+        } else {
+            return self.read_udp(buffer_size);
+        }
     }
 }
