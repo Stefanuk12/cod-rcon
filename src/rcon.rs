@@ -24,7 +24,8 @@ pub enum RCONError {
     Send,
     TCPAuth,
     ChallengeFailed,
-    ConnectFailed
+    ConnectFailed,
+    TimedOut
 }
 
 // Main struct
@@ -49,7 +50,7 @@ impl RCON {
     pub fn default() -> RCON {
         Self {
             host: String::from(""),
-            port: 25525,
+            port: 27017,
             password: String::from(""),
 
             id: Some(0x0012D4A6),
@@ -88,13 +89,18 @@ impl RCON {
                 return Err(RCONError::TCPAuth);
             }
         } else {
-            // Connect to socket
-            let socket_u = UdpSocket::bind(socket_address.clone());
+            // Bind to socket (use random port on localhost)
+            let socket_u = UdpSocket::bind("0.0.0.0:0");
             if let Err(_e) = socket_u {
                 return Err(RCONError::ConnectFailed);
             }
+
+            // Connect to the socket at the correct port and config
             let socket = socket_u.unwrap();
-            socket.connect(socket_address).unwrap();
+            if let Err(_e) = socket.connect(socket_address) {
+                return Err(RCONError::ConnectFailed);
+            }
+            socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
             self.u_socket = Some(socket.try_clone().unwrap());
 
             // Send challenge (if enabled)
@@ -203,8 +209,10 @@ impl RCON {
 
         // Read the data
         let mut buf = vec![0; buffer_size];
-        let (_amt, _src) = socket.recv_from(&mut buf).unwrap();
-        println!("Received (bytes): {:x?}", buf);
+        if let Err(_e) = socket.recv_from(&mut buf) {
+            return Err(RCONError::TimedOut);
+        }
+        println!("Received (bytes): {:02x?}", buf);
 
         // Check for malformed
         if buf.chunks(4).next().unwrap() != FF {
