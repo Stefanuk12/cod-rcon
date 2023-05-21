@@ -52,8 +52,11 @@ fn main() {
     if command.is_some() {
         rcon.send_command(&command.unwrap(), Some(PacketType::CommandR), None, verbose).unwrap();
         if verbose.unwrap_or(false) {
-            if let Ok(resp) = rcon.read(2^64, Some(true)) {
+            let read_r = rcon.read(Some(true));
+            if let Ok(resp) = read_r {
                 println!("{}", resp);
+            } else {
+                println!("unable to read: {:?}", read_r.unwrap_err());
             }
         }
     }
@@ -73,8 +76,11 @@ fn main() {
 
                     // Get response (if verbose)
                     if verbose.unwrap_or(false) {
-                        if let Ok(resp) = rcon.read(2^64, Some(true)) {
+                        let read_r = rcon.read(Some(true));
+                        if let Ok(resp) = read_r {
                             println!("{}", resp);
+                        } else {
+                            println!("unable to read: {:?}", read_r.unwrap_err());
                         }
                     }
                 }

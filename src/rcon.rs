@@ -4,7 +4,7 @@ use std::{
         TcpStream,
         UdpSocket
     }, 
-    io::Write
+    io::{Write, ErrorKind}
 };
 
 // Constants
@@ -25,11 +25,10 @@ pub enum RCONError {
     NoChallengeToken,
     MalforedRead,
     RecieveAuth,
-    Send,
     TCPAuth,
     ChallengeFailed,
     ConnectFailed,
-    TimedOut
+    ErrorKind(ErrorKind)
 }
 
 // Main struct
@@ -135,11 +134,11 @@ impl RCON {
         let verbose = verbose.unwrap_or(false);
         if verbose { println!("Sending command: {:02x?}", data); }
         if tcp {
-            if let Err(_e) = self.t_socket.as_ref().unwrap().write(data) {
-                return Err(RCONError::Send);
+            if let Err(e) = self.t_socket.as_ref().unwrap().write(data) {
+                return Err(RCONError::ErrorKind(e.kind()));
             }
-        } else if let Err(_e) = self.u_socket.as_ref().unwrap().send(data) {
-            return Err(RCONError::Send);
+        } else if let Err(e) = self.u_socket.as_ref().unwrap().send(data) {
+            return Err(RCONError::ErrorKind(e.kind()));
         }
 
         // Success
@@ -200,12 +199,12 @@ impl RCON {
     }
 
     // Reads TCP data
-    pub fn read_tcp(&mut self, buffer_size: usize, verbose: Option<bool>) -> Result<String, RCONError> {
+    pub fn read_tcp(&mut self, verbose: Option<bool>) -> Result<String, RCONError> {
         Ok(String::from(""))
     }
 
     // Reads UDP data
-    pub fn read_udp(&mut self, buffer_size: usize, verbose: Option<bool>) -> Result<String, RCONError> {
+    pub fn read_udp(&mut self, verbose: Option<bool>) -> Result<String, RCONError> {
         // Ensure we are connected
         if self.u_socket.is_none() {
             return Err(RCONError::NotConnected);
@@ -213,9 +212,9 @@ impl RCON {
         let socket = self.u_socket.as_ref().unwrap();
 
         // Read the data
-        let mut buf = vec![0; buffer_size];
-        if let Err(_e) = socket.recv_from(&mut buf) {
-            return Err(RCONError::TimedOut);
+        let mut buf = vec![0];
+        if let Err(e) = socket.recv_from(&mut buf) {
+            return Err(RCONError::ErrorKind(e.kind()));
         }
         if verbose.unwrap_or(false) { println!("Received (bytes): {:02x?}", buf); }
 
@@ -246,11 +245,11 @@ impl RCON {
     }
 
     // Reads data (tcp and udp)
-    pub fn read(&mut self, buffer_size: usize, verbose: Option<bool>) -> Result<String, RCONError> {
+    pub fn read(&mut self, verbose: Option<bool>) -> Result<String, RCONError> {
         if self.tcp.unwrap() {
-            return self.read_tcp(buffer_size, verbose);
+            return self.read_tcp(verbose);
         } else {
-            return self.read_udp(buffer_size, verbose);
+            return self.read_udp(verbose);
         }
     }
 }
