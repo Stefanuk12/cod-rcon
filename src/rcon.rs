@@ -212,7 +212,7 @@ impl RCON {
         let socket = self.u_socket.as_ref().unwrap();
 
         // Read the data
-        let mut buf = vec![0];
+        let mut buf = [0; 65536];
         if let Err(e) = socket.recv_from(&mut buf) {
             return Err(RCONError::ErrorKind(e.kind()));
         }
