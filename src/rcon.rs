@@ -216,7 +216,7 @@ impl RCON {
         if let Err(e) = socket.recv_from(&mut buf) {
             return Err(RCONError::ErrorKind(e.kind()));
         }
-        if verbose.unwrap_or(false) { println!("Received (bytes): {:02x?}", buf); }
+        // if verbose.unwrap_or(false) { println!("Received (bytes): {:02x?}", buf); }
 
         // Check for malformed
         if buf.chunks(4).next().unwrap() != FF {
