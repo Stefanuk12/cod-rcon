@@ -7,13 +7,17 @@ use std::{
     io::Write
 };
 
-//
+// Constants
 const FF: [u8; 4] = [0xff, 0xff, 0xff, 0xff];
+
+// Used for TCP
 pub enum PacketType {
     CommandR = 0x02,
     Auth = 0x03,
     ResponseValue = 0x00
 }
+
+// Errors
 #[derive(Debug)]
 pub enum RCONError {
     NotConnected,
@@ -64,7 +68,7 @@ impl RCON {
     }
 
     // Initialises the sockets
-    pub fn connect(&mut self) -> Result<(), RCONError> {
+    pub fn connect(&mut self, verbose: Option<bool>) -> Result<(), RCONError> {
         // Initialise defaults
         self.id = Some(self.id.unwrap_or(0x0012D4A6));
         self.tcp = Some(self.tcp.unwrap_or(false));
@@ -85,7 +89,7 @@ impl RCON {
             self.t_socket = Some(socket.unwrap());
 
             // Send auth
-            if let Err(_e) = self.send_command(&self.password, Some(PacketType::Auth), None) {
+            if let Err(_e) = self.send_command(&self.password, Some(PacketType::Auth), None, verbose) {
                 return Err(RCONError::TCPAuth);
             }
         } else {
@@ -105,13 +109,13 @@ impl RCON {
 
             // Send challenge (if enabled)
             if self.challenge.unwrap() {
-                if let Err(_e) = self.send_command("challenge rcon\n", None, None) {
+                if let Err(_e) = self.send_command("challenge rcon\n", None, None, verbose) {
                     return Err(RCONError::ChallengeFailed);
                 }
             }
             
             // Send some data
-            self.send(&[0xff, 0xff, 0xff, 0xff, 0x00]).unwrap();
+            self.send(&[0xff, 0xff, 0xff, 0xff, 0x00], verbose).unwrap();
             self.auth = Some(true);
         } 
 
@@ -120,7 +124,7 @@ impl RCON {
     }
 
     // Send data
-    pub fn send(&self, data: &[u8]) -> Result<(), RCONError> {
+    pub fn send(&self, data: &[u8], verbose: Option<bool>) -> Result<(), RCONError> {
         // Ensure we have a socket
         let tcp = self.tcp.unwrap();
         if (tcp && self.t_socket.is_none()) || (!tcp && self.u_socket.is_none()) {
@@ -128,7 +132,8 @@ impl RCON {
         }
 
         // Attempt to send
-        println!("Sending command: {:02x?}", data);
+        let verbose = verbose.unwrap_or(false);
+        if verbose { println!("Sending command: {:02x?}", data); }
         if tcp {
             if let Err(_e) = self.t_socket.as_ref().unwrap().write(data) {
                 return Err(RCONError::Send);
@@ -142,7 +147,7 @@ impl RCON {
     }
 
     // Send a command (UDP)
-    pub fn send_command_udp(&self, data: &str) -> Result<(), RCONError> {
+    pub fn send_command_udp(&self, data: &str, verbose: Option<bool>) -> Result<(), RCONError> {
         // Check for TCP (disabled)
         if self.tcp.unwrap() {
             return Err(RCONError::DisabledMode);
@@ -169,11 +174,11 @@ impl RCON {
         let buf = [FF.to_vec(), payload.as_bytes().to_vec()].concat();
 
         // Send the command
-        self.send(buf.as_slice())
+        self.send(buf.as_slice(), verbose)
     }
 
     // Sends a command (TCP)
-    pub fn send_command_tcp(&self, data: &str, command_type: Option<PacketType>, id: Option<u32>) -> Result<(), RCONError> {
+    pub fn send_command_tcp(&self, data: &str, command_type: Option<PacketType>, id: Option<u32>, verbose: Option<bool>) -> Result<(), RCONError> {
         // Defaults
         let _id = id.unwrap_or(self.id.unwrap());
         let _command_type = command_type.unwrap_or(PacketType::CommandR);
@@ -182,25 +187,25 @@ impl RCON {
         let buf = [];
 
         // Send the command
-        self.send(buf.as_slice())
+        self.send(buf.as_slice(), verbose)
     }
 
     // Sends a command
-    pub fn send_command(&self, data: &str, command_type: Option<PacketType>, id: Option<u32>) -> Result<(), RCONError> {
+    pub fn send_command(&self, data: &str, command_type: Option<PacketType>, id: Option<u32>, verbose: Option<bool>) -> Result<(), RCONError> {
         if self.tcp.unwrap() {
-            return self.send_command_tcp(data, command_type, id);
+            return self.send_command_tcp(data, command_type, id, verbose);
         } else {
-            return self.send_command_udp(data);
+            return self.send_command_udp(data, verbose);
         }
     }
 
     // Reads TCP data
-    pub fn read_tcp(&mut self, buffer_size: usize) -> Result<String, RCONError> {
+    pub fn read_tcp(&mut self, buffer_size: usize, verbose: Option<bool>) -> Result<String, RCONError> {
         Ok(String::from(""))
     }
 
     // Reads UDP data
-    pub fn read_udp(&mut self, buffer_size: usize) -> Result<String, RCONError> {
+    pub fn read_udp(&mut self, buffer_size: usize, verbose: Option<bool>) -> Result<String, RCONError> {
         // Ensure we are connected
         if self.u_socket.is_none() {
             return Err(RCONError::NotConnected);
@@ -212,7 +217,7 @@ impl RCON {
         if let Err(_e) = socket.recv_from(&mut buf) {
             return Err(RCONError::TimedOut);
         }
-        println!("Received (bytes): {:02x?}", buf);
+        if verbose.unwrap_or(false) { println!("Received (bytes): {:02x?}", buf); }
 
         // Check for malformed
         if buf.chunks(4).next().unwrap() != FF {
@@ -241,11 +246,11 @@ impl RCON {
     }
 
     // Reads data (tcp and udp)
-    pub fn read(&mut self, buffer_size: usize) -> Result<String, RCONError> {
+    pub fn read(&mut self, buffer_size: usize, verbose: Option<bool>) -> Result<String, RCONError> {
         if self.tcp.unwrap() {
-            return self.read_tcp(buffer_size);
+            return self.read_tcp(buffer_size, verbose);
         } else {
-            return self.read_udp(buffer_size);
+            return self.read_udp(buffer_size, verbose);
         }
     }
 }
