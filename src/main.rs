@@ -11,11 +11,11 @@ use clap::Parser;
 #[command(version, about, long_about = None)]
 struct Args {
     // Host to connect to
-    #[arg(long, short = 'o', default_value = "127.0.0.1")]
+    #[arg(long, short = 'H', default_value = "127.0.0.1")]
     host: String,
 
     // Port
-    #[arg(long, short = 'x', default_value_t = 27017)]
+    #[arg(long, short = 'P', default_value_t = 27017)]
     port: u16,
 
     // Password
@@ -26,11 +26,11 @@ struct Args {
     command: Option<String>,
 
     // Listens to tty
-    #[arg(long, short = 't', default_value = "true")]
+    #[arg(long, short = 'O')]
     tty: bool,
 
     // Verbose mode (shows sending stuff)
-    #[arg(long, short = 'v', default_value = "true")]
+    #[arg(long, short = 'v')]
     verbose: Option<bool>
 }
 
