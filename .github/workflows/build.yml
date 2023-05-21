@@ -21,9 +21,11 @@ jobs:
   upload-assets:
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -35,10 +37,10 @@ jobs:
           # (optional) On which platform to distribute the `.tar.gz` file.
           # [default value: unix]
           # [possible values: all, unix, windows, none]
-          tar: unix
+          tar: none
           # (optional) On which platform to distribute the `.zip` file.
           # [default value: windows]
           # [possible values: all, unix, windows, none]
-          zip: windows
+          zip: none
           # (required) GitHub token for uploading assets to GitHub Releases.
           token: ${{ secrets.GITHUB_TOKEN }}
