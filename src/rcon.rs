@@ -177,7 +177,7 @@ impl RCON {
     }
 
     // Sends a command (TCP)
-    pub fn send_command_tcp(&self, data: &str, command_type: Option<PacketType>, id: Option<u32>, verbose: Option<bool>) -> Result<(), RCONError> {
+    pub fn send_command_tcp(&self, _data: &str, command_type: Option<PacketType>, id: Option<u32>, verbose: Option<bool>) -> Result<(), RCONError> {
         // Defaults
         let _id = id.unwrap_or(self.id.unwrap());
         let _command_type = command_type.unwrap_or(PacketType::CommandR);
@@ -199,12 +199,12 @@ impl RCON {
     }
 
     // Reads TCP data
-    pub fn read_tcp(&mut self, verbose: Option<bool>) -> Result<String, RCONError> {
+    pub fn read_tcp(&mut self, _verbose: Option<bool>) -> Result<String, RCONError> {
         Ok(String::from(""))
     }
 
     // Reads UDP data
-    pub fn read_udp(&mut self, verbose: Option<bool>) -> Result<String, RCONError> {
+    pub fn read_udp(&mut self, _verbose: Option<bool>) -> Result<String, RCONError> {
         // Ensure we are connected
         if self.u_socket.is_none() {
             return Err(RCONError::NotConnected);
