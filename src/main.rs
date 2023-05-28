@@ -5,31 +5,31 @@ use crate::rcon::PacketType;
 
 use clap::Parser;
 
-// Commandline args
+/// Run RCON commands (via tty)
 #[derive(Parser, Debug, Clone)]
 #[command(name = "Call of Duty: RCON client")]
 #[command(version, about, long_about = None)]
 struct Args {
-    // Host to connect to
+    /// The hostname of the RCON server
     #[arg(long, short = 'H', default_value = "127.0.0.1")]
     host: String,
 
-    // Port
+    /// The port of the RCON server
     #[arg(long, short = 'P', default_value_t = 27017)]
     port: u16,
 
-    // Password
+    /// The password of the RCON server
     #[arg(long, short = 'p', default_value = "password")]
     password: String,
 
-    // Send an optional command
+    /// Send an optional command once connected to the RCON server
     command: Option<String>,
 
-    // Listens to tty
+    /// Listens to tty then runs the input as an RCON command
     #[arg(long, short = 'O', default_value = "false")]
     tty: bool,
 
-    // Verbose mode (shows sending stuff)
+    /// Verbose mode (shows sending stuff)
     #[arg(long, short = 'v', default_value = "false")]
     verbose: bool
 }
@@ -71,9 +71,13 @@ async fn main() {
                 Ok(_n) => {
                     // Send the command
                     input = input.trim().to_owned();
-                    println!("received input: {}", input);
+                    if input.len() == 0 {
+                        break;
+                    }
+                    if verbose { println!("received input: {}", input) };
+
                     if let Err(e) = rcon.send_command(&input.trim(), Some(PacketType::CommandR), None, verbose).await {
-                        println!("unable to send command - {:?}", e)
+                        if verbose { println!("unable to send command - {:?}", e) }
                     };
 
                     // Get response (if verbose)
